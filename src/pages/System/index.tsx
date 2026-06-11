@@ -15,22 +15,22 @@ import {
   AlertCircle,
   X,
   Save,
-  UserPlus,
-  Eye,
-  EyeOff,
   Settings,
   User as UserIcon,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
+import { useToast } from '@/components/Toast';
 import { roleLabels, statusColors, accountTypeLabels } from '@/types';
 import type { User, AccountType } from '@/types';
 
 export default function System() {
   const { users, addUser, updateUser, deleteUser, operationLogs, currentUser } = useAppStore();
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<'users' | 'data' | 'logs'>('users');
   const [searchTerm, setSearchTerm] = useState('');
   const [showUserModal, setShowUserModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState({
     username: '',
     realName: '',
@@ -58,6 +58,7 @@ export default function System() {
 
   const handleAddUser = () => {
     setEditingUser(null);
+    setFormErrors({});
     setFormData({
       username: '',
       realName: '',
@@ -73,6 +74,7 @@ export default function System() {
 
   const handleEditUser = (user: User) => {
     setEditingUser(user);
+    setFormErrors({});
     setFormData({
       username: user.username,
       realName: user.realName,
@@ -87,18 +89,50 @@ export default function System() {
   };
 
   const handleSaveUser = () => {
-    if (!formData.username || !formData.realName) {
-      alert('请填写用户名和真实姓名');
+    const errors: Record<string, string> = {};
+
+    if (!formData.username.trim()) {
+      errors.username = '请输入用户名';
+    } else if (formData.username.trim().length < 3) {
+      errors.username = '用户名至少3个字符';
+    }
+
+    if (!formData.realName.trim()) {
+      errors.realName = '请输入真实姓名';
+    }
+
+    if (!formData.phone.trim()) {
+      errors.phone = '请输入联系电话';
+    } else if (!/^1[3-9]\d{9}$/.test(formData.phone)) {
+      errors.phone = '请输入有效的11位手机号';
+    }
+
+    if (formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.email = '请输入有效的邮箱地址';
+    }
+
+    if (!editingUser) {
+      if (!formData.password) {
+        errors.password = '请设置初始密码';
+      } else if (formData.password.length < 6) {
+        errors.password = '密码至少6个字符';
+      }
+    } else if (formData.password && formData.password.length < 6) {
+      errors.password = '密码至少6个字符';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      showToast('error', '请检查表单中的错误项');
       return;
     }
+
     if (editingUser) {
       updateUser(editingUser.id, formData);
+      showToast('success', '用户修改成功');
     } else {
-      if (!formData.password) {
-        alert('请设置初始密码');
-        return;
-      }
-      addUser(formData as any);
+      addUser({ ...formData, accountType: formData.accountType || 'personal' });
+      showToast('success', '用户添加成功');
     }
     setShowUserModal(false);
   };
@@ -106,16 +140,17 @@ export default function System() {
   const handleDeleteUser = (id: number, name: string) => {
     if (confirm(`确定要删除用户 "${name}" 吗？此操作不可撤销。`)) {
       deleteUser(id);
+      showToast('success', '用户删除成功');
     }
   };
 
   const handleBackup = () => {
-    alert('数据备份已开始，完成后会通知您。');
+    showToast('info', '数据备份已开始，完成后会通知您。');
   };
 
   const handleRestore = (backupName: string) => {
     if (confirm(`确定要从备份 "${backupName}" 恢复数据吗？当前数据将被覆盖。`)) {
-      alert('数据恢复任务已提交。');
+      showToast('info', '数据恢复任务已提交。');
     }
   };
 
@@ -519,10 +554,11 @@ export default function System() {
                   <input
                     type="text"
                     value={formData.username}
-                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    onChange={(e) => { setFormData({ ...formData, username: e.target.value }); setFormErrors({ ...formErrors, username: '' }); }}
+                    className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${formErrors.username ? 'border-red-300' : 'border-gray-200'}`}
                     placeholder="请输入用户名"
                   />
+                  {formErrors.username && <p className="mt-1 text-xs text-red-500">{formErrors.username}</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -531,10 +567,11 @@ export default function System() {
                   <input
                     type="text"
                     value={formData.realName}
-                    onChange={(e) => setFormData({ ...formData, realName: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    onChange={(e) => { setFormData({ ...formData, realName: e.target.value }); setFormErrors({ ...formErrors, realName: '' }); }}
+                    className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${formErrors.realName ? 'border-red-300' : 'border-gray-200'}`}
                     placeholder="请输入真实姓名"
                   />
+                  {formErrors.realName && <p className="mt-1 text-xs text-red-500">{formErrors.realName}</p>}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -553,7 +590,7 @@ export default function System() {
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">角色</label>
                   <select
                     value={formData.role}
-                    onChange={(e) => setFormData({ ...formData, role: e.target.value as any })}
+                    onChange={(e) => setFormData({ ...formData, role: e.target.value as User['role'] })}
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="admin">系统管理员</option>
@@ -569,7 +606,7 @@ export default function System() {
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">状态</label>
                   <select
                     value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value as 'active' | 'disabled' })}
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="active">正常</option>
@@ -580,24 +617,28 @@ export default function System() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">联系电话</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    联系电话 <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="tel"
                     value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    onChange={(e) => { setFormData({ ...formData, phone: e.target.value }); setFormErrors({ ...formErrors, phone: '' }); }}
+                    className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${formErrors.phone ? 'border-red-300' : 'border-gray-200'}`}
                     placeholder="请输入联系电话"
                   />
+                  {formErrors.phone && <p className="mt-1 text-xs text-red-500">{formErrors.phone}</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">邮箱</label>
                   <input
                     type="email"
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    onChange={(e) => { setFormData({ ...formData, email: e.target.value }); setFormErrors({ ...formErrors, email: '' }); }}
+                    className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${formErrors.email ? 'border-red-300' : 'border-gray-200'}`}
                     placeholder="请输入邮箱"
                   />
+                  {formErrors.email && <p className="mt-1 text-xs text-red-500">{formErrors.email}</p>}
                 </div>
               </div>
               <div>
@@ -607,10 +648,11 @@ export default function System() {
                 <input
                   type="password"
                   value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  onChange={(e) => { setFormData({ ...formData, password: e.target.value }); setFormErrors({ ...formErrors, password: '' }); }}
+                  className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${formErrors.password ? 'border-red-300' : 'border-gray-200'}`}
                   placeholder="请输入密码"
                 />
+                {formErrors.password && <p className="mt-1 text-xs text-red-500">{formErrors.password}</p>}
               </div>
             </div>
             <div className="flex gap-3 p-6 border-t border-gray-100">

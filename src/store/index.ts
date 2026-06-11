@@ -101,6 +101,8 @@ interface AppState {
   addTask: (task: Omit<Task, 'id' | 'completedTrips' | 'createdAt' | 'taskNo'>) => void;
   updateTask: (id: number, task: Partial<Task>) => void;
   
+  addMaintenanceRecord: (record: Omit<MaintenanceRecord, 'id'>) => void;
+
   handleWarning: (id: number, handler: string) => void;
   
   addUser: (user: Omit<User, 'id' | 'createdAt'>) => void;
@@ -245,6 +247,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     }));
   },
   
+  addMaintenanceRecord: (record) => {
+    const newRecord: MaintenanceRecord = {
+      ...record,
+      id: Math.max(...get().maintenanceRecords.map(m => m.id)) + 1,
+    };
+    set(state => ({ maintenanceRecords: [...state.maintenanceRecords, newRecord] }));
+  },
+
   handleWarning: (id, handler) => {
     set(state => ({
       safetyWarnings: state.safetyWarnings.map(w =>

@@ -3,30 +3,85 @@ import {
   Plus,
   Search,
   Filter,
-  MoreHorizontal,
+  X,
   Edit,
   Trash2,
   Eye,
   Wrench,
   FileText,
-  ShieldCheck,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import {
   vehicleStatusLabels,
   vehicleStatusColors,
   Vehicle,
-  MaintenanceRecord,
 } from '@/types';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '@/components/Toast';
+
+interface VehicleFormData {
+  plateNumber: string;
+  vehicleType: string;
+  loadCapacity: string;
+  status: string;
+  insuranceExpiry: string;
+  inspectionExpiry: string;
+}
+
+interface VehicleFormErrors {
+  plateNumber?: string;
+  vehicleType?: string;
+  loadCapacity?: string;
+  insuranceExpiry?: string;
+  inspectionExpiry?: string;
+}
+
+interface MaintenanceFormData {
+  type: string;
+  description: string;
+  cost: string;
+  operator: string;
+  maintenanceDate: string;
+}
+
+interface MaintenanceFormErrors {
+  type?: string;
+  description?: string;
+  cost?: string;
+  operator?: string;
+  maintenanceDate?: string;
+}
+
+const initialVehicleForm: VehicleFormData = {
+  plateNumber: '',
+  vehicleType: '',
+  loadCapacity: '',
+  status: 'active',
+  insuranceExpiry: '',
+  inspectionExpiry: '',
+};
+
+const initialMaintenanceForm: MaintenanceFormData = {
+  type: '',
+  description: '',
+  cost: '',
+  operator: '',
+  maintenanceDate: '',
+};
 
 export default function Vehicles() {
-  const { vehicles, maintenanceRecords, deleteVehicle } = useAppStore();
+  const { vehicles, maintenanceRecords, deleteVehicle, addVehicle, updateVehicle, addMaintenanceRecord } = useAppStore();
+  const { showToast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showModal, setShowModal] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
+  const [showMaintenanceForm, setShowMaintenanceForm] = useState(false);
+  const [vehicleForm, setVehicleForm] = useState<VehicleFormData>(initialVehicleForm);
+  const [vehicleErrors, setVehicleErrors] = useState<VehicleFormErrors>({});
+  const [maintenanceForm, setMaintenanceForm] = useState<MaintenanceFormData>(initialMaintenanceForm);
+  const [maintenanceErrors, setMaintenanceErrors] = useState<MaintenanceFormErrors>({});
   const navigate = useNavigate();
 
   const filteredVehicles = vehicles.filter((vehicle) => {
@@ -44,6 +99,148 @@ export default function Vehicles() {
   const handleDelete = (id: number) => {
     if (confirm('确定要删除该车辆吗？')) {
       deleteVehicle(id);
+      showToast('success', '车辆删除成功');
+    }
+  };
+
+  const openAddModal = () => {
+    setSelectedVehicle(null);
+    setVehicleForm(initialVehicleForm);
+    setVehicleErrors({});
+    setShowModal(true);
+  };
+
+  const openEditModal = (vehicle: Vehicle) => {
+    setSelectedVehicle(vehicle);
+    setVehicleForm({
+      plateNumber: vehicle.plateNumber,
+      vehicleType: vehicle.vehicleType,
+      loadCapacity: String(vehicle.loadCapacity),
+      status: vehicle.status,
+      insuranceExpiry: vehicle.insuranceExpiry,
+      inspectionExpiry: vehicle.inspectionExpiry,
+    });
+    setVehicleErrors({});
+    setShowModal(true);
+  };
+
+  const closeVehicleModal = () => {
+    setShowModal(false);
+    setSelectedVehicle(null);
+    setVehicleForm(initialVehicleForm);
+    setVehicleErrors({});
+  };
+
+  const validateVehicleForm = (): boolean => {
+    const errors: VehicleFormErrors = {};
+    if (!vehicleForm.plateNumber.trim()) {
+      errors.plateNumber = '车牌号不能为空';
+    }
+    if (!vehicleForm.vehicleType) {
+      errors.vehicleType = '请选择车辆类型';
+    }
+    if (!vehicleForm.loadCapacity || Number(vehicleForm.loadCapacity) <= 0) {
+      errors.loadCapacity = '载重必须大于0';
+    }
+    if (!vehicleForm.insuranceExpiry) {
+      errors.insuranceExpiry = '请选择保险到期日';
+    }
+    if (!vehicleForm.inspectionExpiry) {
+      errors.inspectionExpiry = '请选择年检到期日';
+    }
+    setVehicleErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleVehicleSave = () => {
+    if (!validateVehicleForm()) return;
+
+    try {
+      if (selectedVehicle) {
+        updateVehicle(selectedVehicle.id, {
+          plateNumber: vehicleForm.plateNumber,
+          vehicleType: vehicleForm.vehicleType,
+          loadCapacity: Number(vehicleForm.loadCapacity),
+          status: vehicleForm.status as Vehicle['status'],
+          insuranceExpiry: vehicleForm.insuranceExpiry,
+          inspectionExpiry: vehicleForm.inspectionExpiry,
+        });
+        showToast('success', '车辆更新成功');
+      } else {
+        addVehicle({
+          plateNumber: vehicleForm.plateNumber,
+          vehicleType: vehicleForm.vehicleType,
+          loadCapacity: Number(vehicleForm.loadCapacity),
+          status: vehicleForm.status as Vehicle['status'],
+          insuranceExpiry: vehicleForm.insuranceExpiry,
+          inspectionExpiry: vehicleForm.inspectionExpiry,
+        });
+        showToast('success', '车辆添加成功');
+      }
+      closeVehicleModal();
+    } catch {
+      showToast('error', selectedVehicle ? '车辆更新失败' : '车辆添加失败');
+    }
+  };
+
+  const openMaintenanceModal = (vehicle: Vehicle) => {
+    setSelectedVehicle(vehicle);
+    setMaintenanceForm(initialMaintenanceForm);
+    setMaintenanceErrors({});
+    setShowMaintenanceForm(false);
+    setShowMaintenanceModal(true);
+  };
+
+  const closeMaintenanceModal = () => {
+    setShowMaintenanceModal(false);
+    setShowMaintenanceForm(false);
+    setSelectedVehicle(null);
+    setMaintenanceForm(initialMaintenanceForm);
+    setMaintenanceErrors({});
+  };
+
+  const validateMaintenanceForm = (): boolean => {
+    const errors: MaintenanceFormErrors = {};
+    if (!maintenanceForm.type) {
+      errors.type = '请选择维护类型';
+    }
+    if (!maintenanceForm.description.trim()) {
+      errors.description = '描述不能为空';
+    }
+    if (!maintenanceForm.cost || Number(maintenanceForm.cost) <= 0) {
+      errors.cost = '费用必须大于0';
+    }
+    if (!maintenanceForm.operator.trim()) {
+      errors.operator = '操作人不能为空';
+    }
+    if (!maintenanceForm.maintenanceDate) {
+      errors.maintenanceDate = '请选择维护日期';
+    }
+    setMaintenanceErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleMaintenanceSave = () => {
+    if (!validateMaintenanceForm()) return;
+    if (!selectedVehicle) return;
+
+    try {
+      addMaintenanceRecord({
+        vehicleId: selectedVehicle.id,
+        plateNumber: selectedVehicle.plateNumber,
+        type: maintenanceForm.type,
+        description: maintenanceForm.description,
+        cost: Number(maintenanceForm.cost),
+        operator: maintenanceForm.operator,
+        maintenanceDate: maintenanceForm.maintenanceDate,
+        date: maintenanceForm.maintenanceDate,
+      });
+      showToast('success', '维护记录添加成功');
+      setShowMaintenanceForm(false);
+      setMaintenanceForm(initialMaintenanceForm);
+      setMaintenanceErrors({});
+    } catch {
+      showToast('error', '维护记录添加失败');
     }
   };
 
@@ -57,7 +254,7 @@ export default function Vehicles() {
           </p>
         </div>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={openAddModal}
           className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:ring-4 focus:ring-blue-200 transition-colors"
         >
           <Plus className="h-4 w-4" />
@@ -163,10 +360,7 @@ export default function Vehicles() {
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <button
-                        onClick={() => {
-                          setSelectedVehicle(vehicle);
-                          setShowMaintenanceModal(true);
-                        }}
+                        onClick={() => openMaintenanceModal(vehicle)}
                         className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                         title="维护记录"
                       >
@@ -180,10 +374,7 @@ export default function Vehicles() {
                         <Eye className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={() => {
-                          setSelectedVehicle(vehicle);
-                          setShowModal(true);
-                        }}
+                        onClick={() => openEditModal(vehicle)}
                         className="p-2 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors"
                         title="编辑"
                       >
@@ -233,13 +424,10 @@ export default function Vehicles() {
                 {selectedVehicle ? '编辑车辆' : '新增车辆'}
               </h3>
               <button
-                onClick={() => {
-                  setShowModal(false);
-                  setSelectedVehicle(null);
-                }}
+                onClick={closeVehicleModal}
                 className="text-gray-400 hover:text-gray-600"
               >
-                <MoreHorizontal className="h-5 w-5" />
+                <X className="h-5 w-5" />
               </button>
             </div>
             <div className="p-5 space-y-4">
@@ -250,24 +438,32 @@ export default function Vehicles() {
                   </label>
                   <input
                     type="text"
-                    defaultValue={selectedVehicle?.plateNumber}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={vehicleForm.plateNumber}
+                    onChange={(e) => setVehicleForm(prev => ({ ...prev, plateNumber: e.target.value }))}
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${vehicleErrors.plateNumber ? 'border-red-400' : 'border-gray-200'}`}
                     placeholder="请输入车牌号"
                   />
+                  {vehicleErrors.plateNumber && (
+                    <p className="mt-1 text-xs text-red-500">{vehicleErrors.plateNumber}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     车辆类型 <span className="text-red-500">*</span>
                   </label>
                   <select
-                    defaultValue={selectedVehicle?.vehicleType}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={vehicleForm.vehicleType}
+                    onChange={(e) => setVehicleForm(prev => ({ ...prev, vehicleType: e.target.value }))}
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${vehicleErrors.vehicleType ? 'border-red-400' : 'border-gray-200'}`}
                   >
                     <option value="">请选择</option>
                     <option value="重型自卸货车">重型自卸货车</option>
                     <option value="中型自卸货车">中型自卸货车</option>
                     <option value="轻型自卸货车">轻型自卸货车</option>
                   </select>
+                  {vehicleErrors.vehicleType && (
+                    <p className="mt-1 text-xs text-red-500">{vehicleErrors.vehicleType}</p>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -277,17 +473,22 @@ export default function Vehicles() {
                   </label>
                   <input
                     type="number"
-                    defaultValue={selectedVehicle?.loadCapacity}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={vehicleForm.loadCapacity}
+                    onChange={(e) => setVehicleForm(prev => ({ ...prev, loadCapacity: e.target.value }))}
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${vehicleErrors.loadCapacity ? 'border-red-400' : 'border-gray-200'}`}
                     placeholder="请输入载重"
                   />
+                  {vehicleErrors.loadCapacity && (
+                    <p className="mt-1 text-xs text-red-500">{vehicleErrors.loadCapacity}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     状态 <span className="text-red-500">*</span>
                   </label>
                   <select
-                    defaultValue={selectedVehicle?.status || 'active'}
+                    value={vehicleForm.status}
+                    onChange={(e) => setVehicleForm(prev => ({ ...prev, status: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="active">空闲</option>
@@ -304,9 +505,13 @@ export default function Vehicles() {
                   </label>
                   <input
                     type="date"
-                    defaultValue={selectedVehicle?.insuranceExpiry}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={vehicleForm.insuranceExpiry}
+                    onChange={(e) => setVehicleForm(prev => ({ ...prev, insuranceExpiry: e.target.value }))}
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${vehicleErrors.insuranceExpiry ? 'border-red-400' : 'border-gray-200'}`}
                   />
+                  {vehicleErrors.insuranceExpiry && (
+                    <p className="mt-1 text-xs text-red-500">{vehicleErrors.insuranceExpiry}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -314,27 +519,25 @@ export default function Vehicles() {
                   </label>
                   <input
                     type="date"
-                    defaultValue={selectedVehicle?.inspectionExpiry}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={vehicleForm.inspectionExpiry}
+                    onChange={(e) => setVehicleForm(prev => ({ ...prev, inspectionExpiry: e.target.value }))}
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${vehicleErrors.inspectionExpiry ? 'border-red-400' : 'border-gray-200'}`}
                   />
+                  {vehicleErrors.inspectionExpiry && (
+                    <p className="mt-1 text-xs text-red-500">{vehicleErrors.inspectionExpiry}</p>
+                  )}
                 </div>
               </div>
             </div>
             <div className="flex justify-end gap-3 p-5 border-t border-gray-100">
               <button
-                onClick={() => {
-                  setShowModal(false);
-                  setSelectedVehicle(null);
-                }}
+                onClick={closeVehicleModal}
                 className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50"
               >
                 取消
               </button>
               <button
-                onClick={() => {
-                  setShowModal(false);
-                  setSelectedVehicle(null);
-                }}
+                onClick={handleVehicleSave}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
               >
                 保存
@@ -357,17 +560,97 @@ export default function Vehicles() {
                 </p>
               </div>
               <button
-                onClick={() => {
-                  setShowMaintenanceModal(false);
-                  setSelectedVehicle(null);
-                }}
+                onClick={closeMaintenanceModal}
                 className="text-gray-400 hover:text-gray-600"
               >
-                <MoreHorizontal className="h-5 w-5" />
+                <X className="h-5 w-5" />
               </button>
             </div>
             <div className="flex-1 overflow-auto p-5">
-              {vehicleMaintenance(selectedVehicle.id).length === 0 ? (
+              {showMaintenanceForm ? (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      维护类型 <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={maintenanceForm.type}
+                      onChange={(e) => setMaintenanceForm(prev => ({ ...prev, type: e.target.value }))}
+                      className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${maintenanceErrors.type ? 'border-red-400' : 'border-gray-200'}`}
+                    >
+                      <option value="">请选择</option>
+                      <option value="常规保养">常规保养</option>
+                      <option value="轮胎更换">轮胎更换</option>
+                      <option value="大修">大修</option>
+                      <option value="其他">其他</option>
+                    </select>
+                    {maintenanceErrors.type && (
+                      <p className="mt-1 text-xs text-red-500">{maintenanceErrors.type}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      描述 <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      value={maintenanceForm.description}
+                      onChange={(e) => setMaintenanceForm(prev => ({ ...prev, description: e.target.value }))}
+                      className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${maintenanceErrors.description ? 'border-red-400' : 'border-gray-200'}`}
+                      rows={3}
+                      placeholder="请输入维护描述"
+                    />
+                    {maintenanceErrors.description && (
+                      <p className="mt-1 text-xs text-red-500">{maintenanceErrors.description}</p>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        费用(元) <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        value={maintenanceForm.cost}
+                        onChange={(e) => setMaintenanceForm(prev => ({ ...prev, cost: e.target.value }))}
+                        className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${maintenanceErrors.cost ? 'border-red-400' : 'border-gray-200'}`}
+                        placeholder="请输入费用"
+                      />
+                      {maintenanceErrors.cost && (
+                        <p className="mt-1 text-xs text-red-500">{maintenanceErrors.cost}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        操作人 <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={maintenanceForm.operator}
+                        onChange={(e) => setMaintenanceForm(prev => ({ ...prev, operator: e.target.value }))}
+                        className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${maintenanceErrors.operator ? 'border-red-400' : 'border-gray-200'}`}
+                        placeholder="请输入操作人"
+                      />
+                      {maintenanceErrors.operator && (
+                        <p className="mt-1 text-xs text-red-500">{maintenanceErrors.operator}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      维护日期 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={maintenanceForm.maintenanceDate}
+                      onChange={(e) => setMaintenanceForm(prev => ({ ...prev, maintenanceDate: e.target.value }))}
+                      className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${maintenanceErrors.maintenanceDate ? 'border-red-400' : 'border-gray-200'}`}
+                    />
+                    {maintenanceErrors.maintenanceDate && (
+                      <p className="mt-1 text-xs text-red-500">{maintenanceErrors.maintenanceDate}</p>
+                    )}
+                  </div>
+                </div>
+              ) : vehicleMaintenance(selectedVehicle.id).length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   <Wrench className="mx-auto h-12 w-12 text-gray-300 mb-2" />
                   <p>暂无维护记录</p>
@@ -393,7 +676,7 @@ export default function Vehicles() {
                         </span>
                       </div>
                       <div className="flex items-center gap-4 mt-3 text-xs text-gray-500">
-                        <span>日期: {record.maintenanceDate}</span>
+                        <span>日期: {record.maintenanceDate || record.date}</span>
                         <span>操作人: {record.operator}</span>
                       </div>
                     </div>
@@ -402,9 +685,33 @@ export default function Vehicles() {
               )}
             </div>
             <div className="flex justify-end gap-3 p-5 border-t border-gray-100">
-              <button className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">
-                新增维护记录
-              </button>
+              {showMaintenanceForm ? (
+                <>
+                  <button
+                    onClick={() => {
+                      setShowMaintenanceForm(false);
+                      setMaintenanceForm(initialMaintenanceForm);
+                      setMaintenanceErrors({});
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={handleMaintenanceSave}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+                  >
+                    保存
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setShowMaintenanceForm(true)}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+                >
+                  新增维护记录
+                </button>
+              )}
             </div>
           </div>
         </div>

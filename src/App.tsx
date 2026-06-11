@@ -8,8 +8,8 @@ import Drivers from '@/pages/Drivers';
 import Statistics from '@/pages/Statistics';
 import Safety from '@/pages/Safety';
 import System from '@/pages/System';
+import { ToastProvider } from '@/components/Toast';
 import { useAppStore } from '@/store';
-import { modulePermissions } from '@/types';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAppStore();
@@ -31,7 +31,8 @@ function ModuleRoute({ children, modulePath }: { children: React.ReactNode; modu
 
 export default function App() {
   return (
-    <Router>
+    <ToastProvider>
+      <Router>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route
@@ -103,5 +104,6 @@ export default function App() {
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </Router>
+    </ToastProvider>
   );
 }

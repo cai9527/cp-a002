@@ -3,31 +3,66 @@ import {
   Plus,
   Search,
   Filter,
-  MoreHorizontal,
+  X,
   MapPin,
   Truck,
   Clock,
   Play,
-  CheckCircle,
-  XCircle,
   Route,
+  Edit,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import { taskStatusLabels, taskStatusColors, Task } from '@/types';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '@/components/Toast';
+
+interface FormData {
+  startPoint: string;
+  endPoint: string;
+  vehicleId: string;
+  driverId: string;
+  plannedTrips: string;
+  distance: string;
+  cargoWeight: string;
+  description: string;
+}
+
+interface FormErrors {
+  startPoint?: string;
+  endPoint?: string;
+  vehicleId?: string;
+  driverId?: string;
+  plannedTrips?: string;
+}
+
+const initialFormData: FormData = {
+  startPoint: '',
+  endPoint: '',
+  vehicleId: '',
+  driverId: '',
+  plannedTrips: '',
+  distance: '',
+  cargoWeight: '',
+  description: '',
+};
 
 export default function Tasks() {
-  const { tasks, vehicles, drivers, addTask } = useAppStore();
+  const { tasks, vehicles, drivers, addTask, updateTask } = useAppStore();
+  const { showToast } = useToast();
+  const navigate = useNavigate();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showModal, setShowModal] = useState(false);
-  const navigate = useNavigate();
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [formData, setFormData] = useState<FormData>(initialFormData);
+  const [errors, setErrors] = useState<FormErrors>({});
 
   const filteredTasks = tasks.filter((task) => {
     const matchesSearch =
       task.taskNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      task.startPoint.includes(searchTerm) ||
-      task.endPoint.includes(searchTerm) ||
+      task.startPoint?.includes(searchTerm) ||
+      task.endPoint?.includes(searchTerm) ||
       task.vehiclePlate?.includes(searchTerm);
     const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
     return matchesSearch && matchesStatus;
@@ -40,6 +75,118 @@ export default function Tasks() {
     { label: '已完成', value: tasks.filter(t => t.status === 'completed').length, color: 'bg-green-500' },
   ];
 
+  const openCreateModal = () => {
+    setEditingTask(null);
+    setFormData(initialFormData);
+    setErrors({});
+    setShowModal(true);
+  };
+
+  const openEditModal = (task: Task) => {
+    setEditingTask(task);
+    setFormData({
+      startPoint: task.startPoint ?? '',
+      endPoint: task.endPoint ?? '',
+      vehicleId: String(task.vehicleId ?? ''),
+      driverId: String(task.driverId ?? ''),
+      plannedTrips: task.plannedTrips != null ? String(task.plannedTrips) : '',
+      distance: task.distance != null ? String(task.distance) : '',
+      cargoWeight: task.cargoWeight != null ? String(task.cargoWeight) : '',
+      description: '',
+    });
+    setErrors({});
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setEditingTask(null);
+    setFormData(initialFormData);
+    setErrors({});
+  };
+
+  const updateField = <K extends keyof FormData>(field: K, value: FormData[K]) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    if (errors[field as keyof FormErrors]) {
+      setErrors(prev => ({ ...prev, [field]: undefined }));
+    }
+  };
+
+  const handleVehicleChange = (vehicleId: string) => {
+    updateField('vehicleId', vehicleId);
+    if (vehicleId) {
+      const vehicle = vehicles.find(v => v.id === Number(vehicleId));
+      if (vehicle) {
+        updateField('cargoWeight', String(vehicle.loadCapacity));
+      }
+    } else {
+      updateField('cargoWeight', '');
+    }
+  };
+
+  const validate = (): boolean => {
+    const newErrors: FormErrors = {};
+
+    if (!formData.startPoint.trim()) {
+      newErrors.startPoint = '请输入起点';
+    }
+    if (!formData.endPoint.trim()) {
+      newErrors.endPoint = '请输入终点';
+    }
+    if (!formData.vehicleId) {
+      newErrors.vehicleId = '请选择车辆';
+    }
+    if (!formData.driverId) {
+      newErrors.driverId = '请选择驾驶员';
+    }
+    if (!formData.plannedTrips) {
+      newErrors.plannedTrips = '请输入计划趟数';
+    } else if (Number(formData.plannedTrips) <= 0) {
+      newErrors.plannedTrips = '计划趟数必须大于0';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = () => {
+    if (!validate()) return;
+
+    const vehicle = vehicles.find(v => v.id === Number(formData.vehicleId));
+    const driver = drivers.find(d => d.id === Number(formData.driverId));
+
+    if (editingTask) {
+      updateTask(editingTask.id, {
+        startPoint: formData.startPoint.trim(),
+        endPoint: formData.endPoint.trim(),
+        vehicleId: Number(formData.vehicleId),
+        driverId: Number(formData.driverId),
+        vehiclePlate: vehicle?.plateNumber,
+        driverName: driver?.name,
+        distance: formData.distance ? Number(formData.distance) : undefined,
+        plannedTrips: Number(formData.plannedTrips),
+        cargoWeight: formData.cargoWeight ? Number(formData.cargoWeight) : undefined,
+      });
+      showToast('success', '任务更新成功');
+    } else {
+      addTask({
+        startPoint: formData.startPoint.trim(),
+        endPoint: formData.endPoint.trim(),
+        vehicleId: Number(formData.vehicleId),
+        driverId: Number(formData.driverId),
+        vehiclePlate: vehicle?.plateNumber,
+        driverName: driver?.name,
+        distance: formData.distance ? Number(formData.distance) : undefined,
+        plannedTrips: Number(formData.plannedTrips),
+        cargoWeight: formData.cargoWeight ? Number(formData.cargoWeight) : undefined,
+        status: 'pending',
+      });
+      showToast('success', '任务创建成功');
+    }
+
+    closeModal();
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -50,7 +197,7 @@ export default function Tasks() {
           </p>
         </div>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={openCreateModal}
           className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:ring-4 focus:ring-blue-200 transition-colors"
         >
           <Plus className="h-4 w-4" />
@@ -138,7 +285,7 @@ export default function Tasks() {
                     <div className="w-24 h-2 bg-gray-200 rounded-full mt-1">
                       <div
                         className="h-full bg-blue-500 rounded-full"
-                        style={{ width: `${(task.completedTrips / task.plannedTrips) * 100}%` }}
+                        style={{ width: `${(task.completedTrips ?? 0) / (task.plannedTrips || 1) * 100}%` }}
                       ></div>
                     </div>
                   </div>
@@ -166,10 +313,14 @@ export default function Tasks() {
                       </button>
                     )}
                     <button
-                      onClick={(e) => e.stopPropagation()}
-                      className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openEditModal(task);
+                      }}
+                      className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg"
+                      title="编辑任务"
                     >
-                      <MoreHorizontal className="h-4 w-4" />
+                      <Edit className="h-4 w-4" />
                     </button>
                   </div>
                 </div>
@@ -217,13 +368,13 @@ export default function Tasks() {
           <div className="w-full max-w-lg rounded-xl bg-white shadow-xl">
             <div className="flex items-center justify-between p-5 border-b border-gray-100">
               <h3 className="text-lg font-semibold text-gray-900">
-                创建运输任务
+                {editingTask ? '编辑运输任务' : '创建运输任务'}
               </h3>
               <button
-                onClick={() => setShowModal(false)}
+                onClick={closeModal}
                 className="text-gray-400 hover:text-gray-600"
               >
-                <MoreHorizontal className="h-5 w-5" />
+                <X className="h-5 w-5" />
               </button>
             </div>
             <div className="p-5 space-y-4">
@@ -234,9 +385,14 @@ export default function Tasks() {
                   </label>
                   <input
                     type="text"
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={formData.startPoint}
+                    onChange={(e) => updateField('startPoint', e.target.value)}
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.startPoint ? 'border-red-400' : 'border-gray-200'}`}
                     placeholder="请输入起点"
                   />
+                  {errors.startPoint && (
+                    <p className="mt-1 text-xs text-red-500">{errors.startPoint}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -244,9 +400,14 @@ export default function Tasks() {
                   </label>
                   <input
                     type="text"
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={formData.endPoint}
+                    onChange={(e) => updateField('endPoint', e.target.value)}
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.endPoint ? 'border-red-400' : 'border-gray-200'}`}
                     placeholder="请输入终点"
                   />
+                  {errors.endPoint && (
+                    <p className="mt-1 text-xs text-red-500">{errors.endPoint}</p>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -254,23 +415,37 @@ export default function Tasks() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     选择车辆 <span className="text-red-500">*</span>
                   </label>
-                  <select className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  <select
+                    value={formData.vehicleId}
+                    onChange={(e) => handleVehicleChange(e.target.value)}
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.vehicleId ? 'border-red-400' : 'border-gray-200'}`}
+                  >
                     <option value="">请选择车辆</option>
                     {vehicles.filter(v => v.status === 'active').map(v => (
                       <option key={v.id} value={v.id}>{v.plateNumber} - {v.loadCapacity}吨</option>
                     ))}
                   </select>
+                  {errors.vehicleId && (
+                    <p className="mt-1 text-xs text-red-500">{errors.vehicleId}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     选择驾驶员 <span className="text-red-500">*</span>
                   </label>
-                  <select className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  <select
+                    value={formData.driverId}
+                    onChange={(e) => updateField('driverId', e.target.value)}
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.driverId ? 'border-red-400' : 'border-gray-200'}`}
+                  >
                     <option value="">请选择驾驶员</option>
                     {drivers.filter(d => d.status === 'on_duty').map(d => (
                       <option key={d.id} value={d.id}>{d.name}</option>
                     ))}
                   </select>
+                  {errors.driverId && (
+                    <p className="mt-1 text-xs text-red-500">{errors.driverId}</p>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-4">
@@ -280,6 +455,8 @@ export default function Tasks() {
                   </label>
                   <input
                     type="number"
+                    value={formData.distance}
+                    onChange={(e) => updateField('distance', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="自动计算"
                   />
@@ -290,9 +467,14 @@ export default function Tasks() {
                   </label>
                   <input
                     type="number"
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={formData.plannedTrips}
+                    onChange={(e) => updateField('plannedTrips', e.target.value)}
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.plannedTrips ? 'border-red-400' : 'border-gray-200'}`}
                     placeholder="请输入"
                   />
+                  {errors.plannedTrips && (
+                    <p className="mt-1 text-xs text-red-500">{errors.plannedTrips}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -300,6 +482,8 @@ export default function Tasks() {
                   </label>
                   <input
                     type="number"
+                    value={formData.cargoWeight}
+                    onChange={(e) => updateField('cargoWeight', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="自动获取"
                   />
@@ -310,6 +494,8 @@ export default function Tasks() {
                   任务说明
                 </label>
                 <textarea
+                  value={formData.description}
+                  onChange={(e) => updateField('description', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   rows={3}
                   placeholder="请输入任务说明..."
@@ -318,16 +504,16 @@ export default function Tasks() {
             </div>
             <div className="flex justify-end gap-3 p-5 border-t border-gray-100">
               <button
-                onClick={() => setShowModal(false)}
+                onClick={closeModal}
                 className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50"
               >
                 取消
               </button>
               <button
-                onClick={() => setShowModal(false)}
+                onClick={handleSubmit}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
               >
-                创建任务
+                {editingTask ? '保存修改' : '创建任务'}
               </button>
             </div>
           </div>

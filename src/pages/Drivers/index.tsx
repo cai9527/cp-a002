@@ -3,7 +3,7 @@ import {
   Plus,
   Search,
   Filter,
-  MoreHorizontal,
+  X,
   Edit,
   Trash2,
   Eye,
@@ -11,18 +11,71 @@ import {
   Calendar,
   FileBadge,
   User,
-  Clock,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
-import { driverStatusLabels, driverStatusColors, Driver } from '@/types';
+import { driverStatusLabels, driverStatusColors, Driver, DriverStatus } from '@/types';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '@/components/Toast';
+
+interface FormData {
+  name: string;
+  phone: string;
+  idCard: string;
+  licenseNumber: string;
+  licenseExpiry: string;
+  yearsOfExperience: string;
+  status: DriverStatus;
+}
+
+interface FormErrors {
+  name?: string;
+  phone?: string;
+  idCard?: string;
+  licenseNumber?: string;
+  licenseExpiry?: string;
+  yearsOfExperience?: string;
+}
+
+const initialFormData: FormData = {
+  name: '',
+  phone: '',
+  idCard: '',
+  licenseNumber: '',
+  licenseExpiry: '',
+  yearsOfExperience: '',
+  status: 'on_duty',
+};
+
+function validate(data: FormData): FormErrors {
+  const errors: FormErrors = {};
+  if (!data.name.trim()) errors.name = '姓名为必填项';
+  if (!data.phone.trim()) {
+    errors.phone = '联系电话为必填项';
+  } else if (!/^1[3-9]\d{9}$/.test(data.phone)) {
+    errors.phone = '请输入正确的11位手机号';
+  }
+  if (!data.idCard.trim()) {
+    errors.idCard = '身份证号为必填项';
+  } else if (!/^\d{17}[\dXx]$/.test(data.idCard)) {
+    errors.idCard = '请输入正确的18位身份证号';
+  }
+  if (!data.licenseNumber.trim()) errors.licenseNumber = '驾驶证号为必填项';
+  if (!data.licenseExpiry) errors.licenseExpiry = '到期日期为必填项';
+  if (data.yearsOfExperience !== '' && Number(data.yearsOfExperience) < 0) {
+    errors.yearsOfExperience = '驾龄不能为负数';
+  }
+  return errors;
+}
 
 export default function Drivers() {
-  const { drivers, deleteDriver } = useAppStore();
+  const { drivers, addDriver, updateDriver, deleteDriver } = useAppStore();
+  const { showToast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showModal, setShowModal] = useState(false);
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
+  const [formData, setFormData] = useState<FormData>(initialFormData);
+  const [errors, setErrors] = useState<FormErrors>({});
   const navigate = useNavigate();
 
   const filteredDrivers = drivers.filter((driver) => {
@@ -34,9 +87,82 @@ export default function Drivers() {
     return matchesSearch && matchesStatus;
   });
 
+  const openAddModal = () => {
+    setSelectedDriver(null);
+    setFormData(initialFormData);
+    setErrors({});
+    setShowModal(true);
+  };
+
+  const openEditModal = (driver: Driver) => {
+    setSelectedDriver(driver);
+    setFormData({
+      name: driver.name,
+      phone: driver.phone,
+      idCard: driver.idCard,
+      licenseNumber: driver.licenseNumber,
+      licenseExpiry: driver.licenseExpiry,
+      yearsOfExperience: driver.yearsOfExperience != null ? String(driver.yearsOfExperience) : '',
+      status: driver.status,
+    });
+    setErrors({});
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setSelectedDriver(null);
+    setFormData(initialFormData);
+    setErrors({});
+  };
+
+  const updateField = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    if ((errors as Record<string, string>)[field]) {
+      setErrors(prev => {
+        const next = { ...prev };
+        delete (next as Record<string, string>)[field];
+        return next;
+      });
+    }
+  };
+
+  const handleSave = () => {
+    const validationErrors = validate(formData);
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      showToast('error', '请检查表单填写是否正确');
+      return;
+    }
+
+    const driverData = {
+      name: formData.name,
+      phone: formData.phone,
+      idCard: formData.idCard,
+      licenseNumber: formData.licenseNumber,
+      licenseExpiry: formData.licenseExpiry,
+      yearsOfExperience: formData.yearsOfExperience !== '' ? Number(formData.yearsOfExperience) : 0,
+      status: formData.status,
+    };
+
+    try {
+      if (selectedDriver) {
+        updateDriver(selectedDriver.id, driverData);
+        showToast('success', '驾驶员信息更新成功');
+      } else {
+        addDriver(driverData);
+        showToast('success', '驾驶员添加成功');
+      }
+      closeModal();
+    } catch {
+      showToast('error', selectedDriver ? '更新失败，请重试' : '添加失败，请重试');
+    }
+  };
+
   const handleDelete = (id: number) => {
     if (confirm('确定要删除该驾驶员吗？')) {
       deleteDriver(id);
+      showToast('success', '驾驶员已删除');
     }
   };
 
@@ -57,7 +183,7 @@ export default function Drivers() {
           </p>
         </div>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={openAddModal}
           className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:ring-4 focus:ring-blue-200 transition-colors"
         >
           <Plus className="h-4 w-4" />
@@ -195,10 +321,7 @@ export default function Drivers() {
                         <Eye className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={() => {
-                          setSelectedDriver(driver);
-                          setShowModal(true);
-                        }}
+                        onClick={() => openEditModal(driver)}
                         className="p-2 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors"
                         title="编辑"
                       >
@@ -245,13 +368,10 @@ export default function Drivers() {
                 {selectedDriver ? '编辑驾驶员' : '新增驾驶员'}
               </h3>
               <button
-                onClick={() => {
-                  setShowModal(false);
-                  setSelectedDriver(null);
-                }}
+                onClick={closeModal}
                 className="text-gray-400 hover:text-gray-600"
               >
-                <MoreHorizontal className="h-5 w-5" />
+                <X className="h-5 w-5" />
               </button>
             </div>
             <div className="p-5 space-y-4">
@@ -262,10 +382,12 @@ export default function Drivers() {
                   </label>
                   <input
                     type="text"
-                    defaultValue={selectedDriver?.name}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={formData.name}
+                    onChange={(e) => updateField('name', e.target.value)}
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.name ? 'border-red-400' : 'border-gray-200'}`}
                     placeholder="请输入姓名"
                   />
+                  {errors.name && <p className="mt-1 text-xs text-red-500">{errors.name}</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -273,10 +395,12 @@ export default function Drivers() {
                   </label>
                   <input
                     type="tel"
-                    defaultValue={selectedDriver?.phone}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={formData.phone}
+                    onChange={(e) => updateField('phone', e.target.value)}
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.phone ? 'border-red-400' : 'border-gray-200'}`}
                     placeholder="请输入手机号"
                   />
+                  {errors.phone && <p className="mt-1 text-xs text-red-500">{errors.phone}</p>}
                 </div>
               </div>
               <div>
@@ -285,10 +409,12 @@ export default function Drivers() {
                 </label>
                 <input
                   type="text"
-                  defaultValue={selectedDriver?.idCard}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  value={formData.idCard}
+                  onChange={(e) => updateField('idCard', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.idCard ? 'border-red-400' : 'border-gray-200'}`}
                   placeholder="请输入身份证号"
                 />
+                {errors.idCard && <p className="mt-1 text-xs text-red-500">{errors.idCard}</p>}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -297,10 +423,12 @@ export default function Drivers() {
                   </label>
                   <input
                     type="text"
-                    defaultValue={selectedDriver?.licenseNumber}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={formData.licenseNumber}
+                    onChange={(e) => updateField('licenseNumber', e.target.value)}
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.licenseNumber ? 'border-red-400' : 'border-gray-200'}`}
                     placeholder="请输入驾驶证号"
                   />
+                  {errors.licenseNumber && <p className="mt-1 text-xs text-red-500">{errors.licenseNumber}</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -308,9 +436,11 @@ export default function Drivers() {
                   </label>
                   <input
                     type="date"
-                    defaultValue={selectedDriver?.licenseExpiry}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={formData.licenseExpiry}
+                    onChange={(e) => updateField('licenseExpiry', e.target.value)}
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.licenseExpiry ? 'border-red-400' : 'border-gray-200'}`}
                   />
+                  {errors.licenseExpiry && <p className="mt-1 text-xs text-red-500">{errors.licenseExpiry}</p>}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -320,17 +450,20 @@ export default function Drivers() {
                   </label>
                   <input
                     type="number"
-                    defaultValue={selectedDriver?.yearsOfExperience}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={formData.yearsOfExperience}
+                    onChange={(e) => updateField('yearsOfExperience', e.target.value)}
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.yearsOfExperience ? 'border-red-400' : 'border-gray-200'}`}
                     placeholder="请输入驾龄"
                   />
+                  {errors.yearsOfExperience && <p className="mt-1 text-xs text-red-500">{errors.yearsOfExperience}</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     状态 <span className="text-red-500">*</span>
                   </label>
                   <select
-                    defaultValue={selectedDriver?.status || 'on_duty'}
+                    value={formData.status}
+                    onChange={(e) => updateField('status', e.target.value as DriverStatus)}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="on_duty">在岗</option>
@@ -343,19 +476,13 @@ export default function Drivers() {
             </div>
             <div className="flex justify-end gap-3 p-5 border-t border-gray-100">
               <button
-                onClick={() => {
-                  setShowModal(false);
-                  setSelectedDriver(null);
-                }}
+                onClick={closeModal}
                 className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50"
               >
                 取消
               </button>
               <button
-                onClick={() => {
-                  setShowModal(false);
-                  setSelectedDriver(null);
-                }}
+                onClick={handleSave}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
               >
                 保存
