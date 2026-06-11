@@ -4,7 +4,7 @@ import { Header } from './Header';
 import { useAppStore } from '@/store';
 import { cn } from '@/lib/utils';
 
-export function MainLayout() {
+export default function MainLayout() {
   const { isAuthenticated, sidebarCollapsed } = useAppStore();
 
   if (!isAuthenticated) {

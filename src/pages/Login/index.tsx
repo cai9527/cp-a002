@@ -119,6 +119,7 @@ export default function Login() {
             >
               {loading ? '登录中...' : '登 录'}
             </button>
+            </div>
           </form>
 
           <div className="px-8 pb-6 text-center text-xs text-gray-500">

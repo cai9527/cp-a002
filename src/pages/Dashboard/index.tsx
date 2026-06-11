@@ -91,7 +91,7 @@ export default function Dashboard() {
     { name: '空闲', value: vehicles.filter(v => v.status === 'active').length },
     { name: '运输中', value: vehicles.filter(v => v.status === 'in_transit').length },
     { name: '维护中', value: vehicles.filter(v => v.status === 'maintenance').length },
-    { name: '停用', value: vehicles.filter(v => v.status === 'inactive').length },
+    { name: '停用', value: vehicles.filter(v => v.status === 'disabled').length },
   ];
 
   const recentTasks = tasks.slice(0, 5);
@@ -182,7 +182,7 @@ export default function Dashboard() {
                   dataKey="transportVolume"
                   name="运输量(吨)"
                   stroke="#3b82f6"
-                  strokeWidth={3
+                  strokeWidth={3}
                   dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
                   activeDot={{ r: 6 }}
                 />

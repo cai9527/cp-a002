@@ -4,17 +4,26 @@ export interface User {
   realName: string;
   role: UserRole;
   phone: string;
+  email?: string;
+  status?: 'active' | 'disabled';
+  password?: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
-export type UserRole = 'admin' | 'manager' | 'dispatcher' | 'safety' | 'fleet';
+export type UserRole = 'admin' | 'manager' | 'dispatcher' | 'safety_officer' | 'fleet_manager';
 
 export const roleLabels: Record<UserRole, string> = {
   admin: '系统管理员',
   manager: '工地管理员',
   dispatcher: '调度员',
-  safety: '安全员',
-  fleet: '车队管理员',
+  safety_officer: '安全员',
+  fleet_manager: '车队管理员',
+};
+
+export const statusColors: Record<'active' | 'disabled', string> = {
+  active: 'bg-green-100 text-green-800',
+  disabled: 'bg-gray-100 text-gray-800',
 };
 
 export interface Vehicle {
@@ -30,30 +39,37 @@ export interface Vehicle {
   updatedAt: string;
 }
 
-export type VehicleStatus = 'active' | 'in_transit' | 'maintenance' | 'inactive';
+export type VehicleStatus = 'idle' | 'in_transit' | 'maintenance' | 'disabled' | 'active';
 
 export const vehicleStatusLabels: Record<VehicleStatus, string> = {
+  idle: '空闲',
   active: '空闲',
   in_transit: '运输中',
   maintenance: '维护中',
-  inactive: '停用',
+  disabled: '停用',
 };
 
 export const vehicleStatusColors: Record<VehicleStatus, string> = {
+  idle: 'bg-green-100 text-green-800',
   active: 'bg-green-100 text-green-800',
   in_transit: 'bg-blue-100 text-blue-800',
   maintenance: 'bg-yellow-100 text-yellow-800',
-  inactive: 'bg-gray-100 text-gray-800',
+  disabled: 'bg-gray-100 text-gray-800',
 };
 
 export interface MaintenanceRecord {
   id: number;
   vehicleId: number;
-  maintenanceDate: string;
+  plateNumber?: string;
+  maintenanceDate?: string;
+  date?: string;
   type: string;
   description: string;
   cost: number;
   operator: string;
+  mileage?: number;
+  nextMaintenanceDate?: string;
+  remark?: string;
 }
 
 export interface Driver {
@@ -64,8 +80,11 @@ export interface Driver {
   licenseExpiry: string;
   phone: string;
   status: DriverStatus;
-  yearsOfExperience: number;
+  yearsOfExperience?: number;
+  drivingYears?: number;
+  avatar?: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export type DriverStatus = 'on_duty' | 'off_duty' | 'rest' | 'suspended';
@@ -88,7 +107,7 @@ export interface AttendanceRecord {
   id: number;
   driverId: number;
   date: string;
-  status: 'present' | 'absent' | 'leave';
+  status: 'present' | 'absent' | 'leave' | 'rest';
   checkIn?: string;
   checkOut?: string;
 }
@@ -100,17 +119,26 @@ export interface Task {
   driverId: number;
   vehiclePlate?: string;
   driverName?: string;
-  startPoint: string;
-  endPoint: string;
-  distance: number;
-  plannedTrips: number;
-  completedTrips: number;
-  cargoWeight: number;
+  startPoint?: string;
+  endPoint?: string;
+  fromLocation?: string;
+  toLocation?: string;
+  distance?: number;
+  plannedTrips?: number;
+  completedTrips?: number;
+  cargoWeight?: number;
+  weight?: number;
+  cargoType?: string;
   status: TaskStatus;
+  progress?: number;
+  currentLocation?: string;
+  scheduledTime?: string;
   startTime?: string;
   endTime?: string;
-  createdBy: number;
+  estimatedArrival?: string;
+  createdBy?: number;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
@@ -153,6 +181,7 @@ export interface SafetyWarning {
   status: WarningStatus;
   handler?: string;
   handleTime?: string;
+  handleNote?: string;
 }
 
 export type WarningType = 'overspeed' | 'fatigue' | 'violation' | 'other';
@@ -205,15 +234,19 @@ export interface ViolationRecord {
   type: string;
   description: string;
   violationTime: string;
+  location?: string;
   penalty: number;
-  status: 'pending' | 'processed';
+  points?: number;
+  status: 'pending' | 'processed' | 'resolved';
+  createdAt?: string;
 }
 
 export interface DailyStats {
   date: string;
   transportVolume: number;
   tripCount: number;
-  vehicleCount: number;
+  vehicleCount?: number;
+  activeVehicles?: number;
 }
 
 export interface VehicleStats {
@@ -247,11 +280,15 @@ export interface VehicleLocation {
 
 export interface OperationLog {
   id: number;
-  userId: number;
-  username: string;
+  userId?: number;
+  operatorId?: number;
+  username?: string;
+  operatorName?: string;
   action: string;
-  module: string;
+  module?: string;
   detail: string;
   ip: string;
-  createdAt: string;
+  createdAt?: string;
+  timestamp?: string;
+  type?: 'success' | 'warning' | 'error';
 }

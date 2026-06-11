@@ -1,6 +1,4 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-# cp-a002
+
 =======
 # React + TypeScript + Vite
 
@@ -59,7 +57,4 @@ export default tseslint.config({
   },
 })
 ```
->>>>>>> ef95dc1 (.3819067977509483:c1caf1977f90b436a676e8ae306b037c_6a295d565932dfb41c49ff73.6a2a0f69b61f41b8b1c67da9.6a2a0f6932a8629ffe1427e9:Trae CN.T(2026/6/11 09:29:13))
-=======
-# cp-a002
->>>>>>> 60e396fb4eed0360d3f896a075abfb717ceafd64
+
