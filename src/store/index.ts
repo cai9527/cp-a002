@@ -32,6 +32,38 @@ import {
   mockOperationLogs,
 } from '@/mock';
 
+const STORAGE_KEY = 'app_state';
+
+function loadPersistedState(): Partial<AppState> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        currentUser: parsed.currentUser || null,
+        isAuthenticated: parsed.isAuthenticated || false,
+        sidebarCollapsed: parsed.sidebarCollapsed || false,
+      };
+    }
+  } catch (e) {
+    console.warn('Failed to load persisted state:', e);
+  }
+  return {};
+}
+
+function persistState(state: Partial<AppState>) {
+  try {
+    const toPersist = {
+      currentUser: state.currentUser,
+      isAuthenticated: state.isAuthenticated,
+      sidebarCollapsed: state.sidebarCollapsed,
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(toPersist));
+  } catch (e) {
+    console.warn('Failed to persist state:', e);
+  }
+}
+
 interface AppState {
   currentUser: User | null;
   isAuthenticated: boolean;
@@ -76,10 +108,12 @@ interface AppState {
   deleteUser: (id: number) => void;
 }
 
+const persistedInitial = loadPersistedState();
+
 export const useAppStore = create<AppState>((set, get) => ({
-  currentUser: null,
-  isAuthenticated: false,
-  sidebarCollapsed: false,
+  currentUser: persistedInitial.currentUser ?? null,
+  isAuthenticated: persistedInitial.isAuthenticated ?? false,
+  sidebarCollapsed: persistedInitial.sidebarCollapsed ?? false,
   
   users: mockUsers,
   vehicles: mockVehicles,
@@ -97,18 +131,26 @@ export const useAppStore = create<AppState>((set, get) => ({
   login: (username: string, password: string) => {
     const user = mockUsers.find(u => u.username === username);
     if (user && password === '123456') {
-      set({ currentUser: user, isAuthenticated: true });
+      const newState = { currentUser: user, isAuthenticated: true };
+      set(newState);
+      persistState({ ...get(), ...newState });
       return true;
     }
     return false;
   },
   
   logout: () => {
-    set({ currentUser: null, isAuthenticated: false });
+    const newState = { currentUser: null, isAuthenticated: false };
+    set(newState);
+    persistState({ ...get(), ...newState });
   },
   
   toggleSidebar: () => {
-    set(state => ({ sidebarCollapsed: !state.sidebarCollapsed }));
+    set(state => {
+      const newState = { sidebarCollapsed: !state.sidebarCollapsed };
+      persistState({ ...state, ...newState });
+      return newState;
+    });
   },
   
   getAccessibleModules: () => {
@@ -128,10 +170,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!currentUser) return;
     
     const updatedUser = { ...currentUser, accountType, updatedAt: new Date().toISOString() };
-    set({ 
+    const newState = { 
       currentUser: updatedUser,
       users: users.map(u => u.id === currentUser.id ? updatedUser : u)
-    });
+    };
+    set(newState);
+    persistState({ ...get(), ...newState });
   },
   
   addVehicle: (vehicle) => {
@@ -229,10 +273,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     const updatedCurrentUser = currentUser && currentUser.id === id
       ? { ...currentUser, ...user, updatedAt: new Date().toISOString() }
       : currentUser;
-    set({
+    const newState = {
       users: updatedUsers,
       currentUser: updatedCurrentUser,
-    });
+    };
+    set(newState);
+    if (currentUser && currentUser.id === id) {
+      persistState({ ...get(), ...newState });
+    }
   },
   
   deleteUser: (id) => {
