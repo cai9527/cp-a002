@@ -1,8 +1,16 @@
+export type AccountType = 'admin' | 'personal';
+
+export const accountTypeLabels: Record<AccountType, string> = {
+  admin: '管理员账号',
+  personal: '个人账号',
+};
+
 export interface User {
   id: number;
   username: string;
   realName: string;
   role: UserRole;
+  accountType: AccountType;
   phone: string;
   email?: string;
   status?: 'active' | 'disabled';
@@ -20,6 +28,32 @@ export const roleLabels: Record<UserRole, string> = {
   safety_officer: '安全员',
   fleet_manager: '车队管理员',
 };
+
+export interface ModulePermission {
+  path: string;
+  label: string;
+  allowedAccountTypes: AccountType[];
+}
+
+export const modulePermissions: ModulePermission[] = [
+  { path: '/dashboard', label: '首页仪表盘', allowedAccountTypes: ['admin', 'personal'] },
+  { path: '/vehicles', label: '车辆管理', allowedAccountTypes: ['admin', 'personal'] },
+  { path: '/tasks', label: '任务调度', allowedAccountTypes: ['admin', 'personal'] },
+  { path: '/drivers', label: '驾驶员管理', allowedAccountTypes: ['admin', 'personal'] },
+  { path: '/statistics', label: '运输统计', allowedAccountTypes: ['admin', 'personal'] },
+  { path: '/safety', label: '安全监控', allowedAccountTypes: ['admin', 'personal'] },
+  { path: '/system', label: '系统管理', allowedAccountTypes: ['admin'] },
+];
+
+export function hasModulePermission(accountType: AccountType, modulePath: string): boolean {
+  const module = modulePermissions.find(m => m.path === modulePath);
+  if (!module) return false;
+  return module.allowedAccountTypes.includes(accountType);
+}
+
+export function getAccessibleModules(accountType: AccountType): ModulePermission[] {
+  return modulePermissions.filter(m => m.allowedAccountTypes.includes(accountType));
+}
 
 export const statusColors: Record<'active' | 'disabled', string> = {
   active: 'bg-green-100 text-green-800',

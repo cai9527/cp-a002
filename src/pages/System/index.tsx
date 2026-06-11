@@ -19,10 +19,11 @@ import {
   Eye,
   EyeOff,
   Settings,
+  User as UserIcon,
 } from 'lucide-react';
 import { useAppStore } from '@/store';
-import { roleLabels, statusColors } from '@/types';
-import type { User } from '@/types';
+import { roleLabels, statusColors, accountTypeLabels } from '@/types';
+import type { User, AccountType } from '@/types';
 
 export default function System() {
   const { users, addUser, updateUser, deleteUser, operationLogs, currentUser } = useAppStore();
@@ -34,6 +35,7 @@ export default function System() {
     username: '',
     realName: '',
     role: 'dispatcher' as User['role'],
+    accountType: 'personal' as AccountType,
     phone: '',
     email: '',
     password: '',
@@ -60,6 +62,7 @@ export default function System() {
       username: '',
       realName: '',
       role: 'dispatcher',
+      accountType: 'personal',
       phone: '',
       email: '',
       password: '',
@@ -74,6 +77,7 @@ export default function System() {
       username: user.username,
       realName: user.realName,
       role: user.role,
+      accountType: user.accountType,
       phone: user.phone,
       email: user.email || '',
       password: '',
@@ -191,6 +195,9 @@ export default function System() {
                       用户信息
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      账号类型
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       角色
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -224,6 +231,16 @@ export default function System() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full ${
+                          user.accountType === 'admin' 
+                            ? 'bg-purple-50 text-purple-700' 
+                            : 'bg-green-50 text-green-700'
+                        }`}>
+                          {user.accountType === 'admin' ? <Shield className="h-3 w-3" /> : <UserIcon className="h-3 w-3" />}
+                          {accountTypeLabels[user.accountType]}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-blue-50 text-blue-700">
                           <Shield className="h-3 w-3" />
                           {roleLabels[user.role]}
@@ -254,7 +271,7 @@ export default function System() {
                             <button
                               onClick={() => handleDeleteUser(user.id, user.realName)}
                               className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="删除"
+                            title="删除"
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
@@ -522,6 +539,17 @@ export default function System() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">账号类型</label>
+                  <select
+                    value={formData.accountType}
+                    onChange={(e) => setFormData({ ...formData, accountType: e.target.value as AccountType })}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="admin">管理员账号</option>
+                    <option value="personal">个人账号</option>
+                  </select>
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">角色</label>
                   <select
                     value={formData.role}
@@ -535,6 +563,8 @@ export default function System() {
                     <option value="fleet_manager">车队管理员</option>
                   </select>
                 </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">状态</label>
                   <select
@@ -546,6 +576,7 @@ export default function System() {
                     <option value="disabled">禁用</option>
                   </select>
                 </div>
+                <div></div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

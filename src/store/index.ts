@@ -12,6 +12,10 @@ import {
   MaintenanceRecord,
   VehicleLocation,
   OperationLog,
+  ModulePermission,
+  AccountType,
+  getAccessibleModules,
+  hasModulePermission,
 } from '@/types';
 import {
   mockUsers,
@@ -49,6 +53,10 @@ interface AppState {
   login: (username: string, password: string) => boolean;
   logout: () => void;
   toggleSidebar: () => void;
+  
+  getAccessibleModules: () => ModulePermission[];
+  hasModulePermission: (modulePath: string) => boolean;
+  updateCurrentUserAccountType: (accountType: AccountType) => void;
   
   addVehicle: (vehicle: Omit<Vehicle, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateVehicle: (id: number, vehicle: Partial<Vehicle>) => void;
@@ -101,6 +109,29 @@ export const useAppStore = create<AppState>((set, get) => ({
   
   toggleSidebar: () => {
     set(state => ({ sidebarCollapsed: !state.sidebarCollapsed }));
+  },
+  
+  getAccessibleModules: () => {
+    const { currentUser } = get();
+    if (!currentUser) return [];
+    return getAccessibleModules(currentUser.accountType);
+  },
+  
+  hasModulePermission: (modulePath: string) => {
+    const { currentUser } = get();
+    if (!currentUser) return false;
+    return hasModulePermission(currentUser.accountType, modulePath);
+  },
+  
+  updateCurrentUserAccountType: (accountType: AccountType) => {
+    const { currentUser, users } = get();
+    if (!currentUser) return;
+    
+    const updatedUser = { ...currentUser, accountType, updatedAt: new Date().toISOString() };
+    set({ 
+      currentUser: updatedUser,
+      users: users.map(u => u.id === currentUser.id ? updatedUser : u)
+    });
   },
   
   addVehicle: (vehicle) => {
@@ -183,6 +214,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   addUser: (user) => {
     const newUser: User = {
       ...user,
+      accountType: user.accountType || 'personal',
       id: Math.max(...get().users.map(u => u.id)) + 1,
       createdAt: new Date().toISOString(),
     };
@@ -190,11 +222,17 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   
   updateUser: (id, user) => {
-    set(state => ({
-      users: state.users.map(u =>
-        u.id === id ? { ...u, ...user } : u
-      ),
-    }));
+    const { currentUser } = get();
+    const updatedUsers = get().users.map(u =>
+      u.id === id ? { ...u, ...user, updatedAt: new Date().toISOString() } : u
+    );
+    const updatedCurrentUser = currentUser && currentUser.id === id
+      ? { ...currentUser, ...user, updatedAt: new Date().toISOString() }
+      : currentUser;
+    set({
+      users: updatedUsers,
+      currentUser: updatedCurrentUser,
+    });
   },
   
   deleteUser: (id) => {

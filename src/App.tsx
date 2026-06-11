@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import MainLayout from '@/components/Layout/MainLayout';
 import Login from '@/pages/Login';
 import Dashboard from '@/pages/Dashboard';
@@ -9,10 +9,24 @@ import Statistics from '@/pages/Statistics';
 import Safety from '@/pages/Safety';
 import System from '@/pages/System';
 import { useAppStore } from '@/store';
+import { modulePermissions } from '@/types';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAppStore();
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
+}
+
+function ModuleRoute({ children, modulePath }: { children: React.ReactNode; modulePath: string }) {
+  const { hasModulePermission, getAccessibleModules } = useAppStore();
+  const location = useLocation();
+
+  if (!hasModulePermission(modulePath)) {
+    const accessibleModules = getAccessibleModules();
+    const redirectPath = accessibleModules.length > 0 ? accessibleModules[0].path : '/login';
+    return <Navigate to={redirectPath} replace state={{ from: location }} />;
+  }
+
+  return <>{children}</>;
 }
 
 export default function App() {
@@ -29,13 +43,62 @@ export default function App() {
           }
         >
           <Route index element={<Navigate to="/dashboard" replace />} />
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="vehicles" element={<Vehicles />} />
-          <Route path="tasks" element={<Tasks />} />
-          <Route path="drivers" element={<Drivers />} />
-          <Route path="statistics" element={<Statistics />} />
-          <Route path="safety" element={<Safety />} />
-          <Route path="system" element={<System />} />
+          <Route
+            path="dashboard"
+            element={
+              <ModuleRoute modulePath="/dashboard">
+                <Dashboard />
+              </ModuleRoute>
+            }
+          />
+          <Route
+            path="vehicles"
+            element={
+              <ModuleRoute modulePath="/vehicles">
+                <Vehicles />
+              </ModuleRoute>
+            }
+          />
+          <Route
+            path="tasks"
+            element={
+              <ModuleRoute modulePath="/tasks">
+                <Tasks />
+              </ModuleRoute>
+            }
+          />
+          <Route
+            path="drivers"
+            element={
+              <ModuleRoute modulePath="/drivers">
+                <Drivers />
+              </ModuleRoute>
+            }
+          />
+          <Route
+            path="statistics"
+            element={
+              <ModuleRoute modulePath="/statistics">
+                <Statistics />
+              </ModuleRoute>
+            }
+          />
+          <Route
+            path="safety"
+            element={
+              <ModuleRoute modulePath="/safety">
+                <Safety />
+              </ModuleRoute>
+            }
+          />
+          <Route
+            path="system"
+            element={
+              <ModuleRoute modulePath="/system">
+                <System />
+              </ModuleRoute>
+            }
+          />
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

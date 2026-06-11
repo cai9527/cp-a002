@@ -122,8 +122,9 @@ export default function Login() {
             </div>
           </form>
 
-          <div className="px-8 pb-6 text-center text-xs text-gray-500">
-            <p>测试账号：admin / 123456</p>
+          <div className="px-8 pb-6 text-center text-xs text-gray-500 space-y-1">
+            <p>管理员账号：admin / 123456</p>
+            <p>个人账号：user / 123456</p>
           </div>
         </div>
 

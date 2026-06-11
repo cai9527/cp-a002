@@ -12,20 +12,28 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '@/store';
 import { cn } from '@/lib/utils';
+import { accountTypeLabels } from '@/types';
 
-const menuItems = [
-  { path: '/dashboard', label: '首页仪表盘', icon: LayoutDashboard },
-  { path: '/vehicles', label: '车辆管理', icon: Truck },
-  { path: '/tasks', label: '任务调度', icon: ClipboardList },
-  { path: '/drivers', label: '驾驶员管理', icon: Users },
-  { path: '/statistics', label: '运输统计', icon: BarChart3 },
-  { path: '/safety', label: '安全监控', icon: ShieldAlert },
-  { path: '/system', label: '系统管理', icon: Settings },
-];
+const menuItemIcons: Record<string, any> = {
+  '/dashboard': LayoutDashboard,
+  '/vehicles': Truck,
+  '/tasks': ClipboardList,
+  '/drivers': Users,
+  '/statistics': BarChart3,
+  '/safety': ShieldAlert,
+  '/system': Settings,
+};
 
 export function Sidebar() {
-  const { sidebarCollapsed, toggleSidebar, currentUser } = useAppStore();
+  const { sidebarCollapsed, toggleSidebar, currentUser, getAccessibleModules } = useAppStore();
   const location = useLocation();
+  const accessibleModules = getAccessibleModules();
+
+  const menuItems = accessibleModules.map(module => ({
+    path: module.path,
+    label: module.label,
+    icon: menuItemIcons[module.path] || LayoutDashboard,
+  }));
 
   const isActive = (path: string) => {
     return location.pathname.startsWith(path);
@@ -102,7 +110,7 @@ export function Sidebar() {
                 {currentUser?.realName}
               </p>
               <p className="truncate text-xs text-slate-400">
-                {currentUser?.role}
+                {currentUser && accountTypeLabels[currentUser.accountType]}
               </p>
             </div>
           </div>
